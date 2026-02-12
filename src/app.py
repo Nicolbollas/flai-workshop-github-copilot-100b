@@ -6,6 +6,7 @@ for extracurricular activities at Mergington High School.
 """
 
 from fastapi import FastAPI, HTTPException
+from fastapi import Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 import os
@@ -89,6 +90,30 @@ def root():
 @app.get("/activities")
 def get_activities():
     return activities
+
+# Unregister endpoint request model
+class UnregisterRequest(BaseModel):
+    activity: str
+    participant: str
+
+@app.post("/unregister")
+async def unregister(request: Request):
+    data = await request.json()
+    activity_name = data.get("activity")
+    participant = data.get("participant")
+
+    if not activity_name or not participant:
+        raise HTTPException(status_code=400, detail="Missing activity or participant")
+
+    if activity_name not in activities:
+        raise HTTPException(status_code=404, detail="Activity not found")
+
+    activity = activities[activity_name]
+    if participant not in activity["participants"]:
+        raise HTTPException(status_code=404, detail="Participant not found in activity")
+
+    activity["participants"].remove(participant)
+    return {"success": True, "message": f"Unregistered {participant} from {activity_name}"}
 
 
 @app.post("/activities/{activity_name}/signup")
