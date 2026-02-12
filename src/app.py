@@ -6,6 +6,8 @@ for extracurricular activities at Mergington High School.
 """
 
 from fastapi import FastAPI, HTTPException
+from fastapi import Request
+from pydantic import BaseModel
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 import os
@@ -38,6 +40,45 @@ activities = {
         "schedule": "Mondays, Wednesdays, Fridays, 2:00 PM - 3:00 PM",
         "max_participants": 30,
         "participants": ["john@mergington.edu", "olivia@mergington.edu"]
+    },
+    # Sports related activities
+    "Soccer Team": {
+        "description": "Join the school soccer team and compete in local leagues",
+        "schedule": "Tuesdays and Thursdays, 4:00 PM - 5:30 PM",
+        "max_participants": 18,
+        "participants": ["lucas@mergington.edu", "mia@mergington.edu"]
+    },
+    "Basketball Club": {
+        "description": "Practice basketball skills and play friendly matches",
+        "schedule": "Wednesdays, 3:30 PM - 5:00 PM",
+        "max_participants": 15,
+        "participants": ["liam@mergington.edu", "ava@mergington.edu"]
+    },
+    # Artistic activities
+    "Drama Club": {
+        "description": "Act in plays and participate in drama workshops",
+        "schedule": "Mondays, 4:00 PM - 5:30 PM",
+        "max_participants": 16,
+        "participants": ["noah@mergington.edu", "isabella@mergington.edu"]
+    },
+    "Art Workshop": {
+        "description": "Explore painting, drawing, and sculpture techniques",
+        "schedule": "Fridays, 2:00 PM - 3:30 PM",
+        "max_participants": 14,
+        "participants": ["amelia@mergington.edu", "benjamin@mergington.edu"]
+    },
+    # Intellectual activities
+    "Math Olympiad": {
+        "description": "Prepare for math competitions and solve challenging problems",
+        "schedule": "Thursdays, 3:30 PM - 5:00 PM",
+        "max_participants": 10,
+        "participants": ["charlotte@mergington.edu", "elijah@mergington.edu"]
+    },
+    "Debate Team": {
+        "description": "Develop public speaking and argumentation skills",
+        "schedule": "Wednesdays, 4:00 PM - 5:30 PM",
+        "max_participants": 12,
+        "participants": ["james@mergington.edu", "harper@mergington.edu"]
     }
 }
 
@@ -51,6 +92,30 @@ def root():
 def get_activities():
     return activities
 
+# Unregister endpoint request model
+class UnregisterRequest(BaseModel):
+    activity: str
+    participant: str
+
+@app.post("/unregister")
+async def unregister(request: Request):
+    data = await request.json()
+    activity_name = data.get("activity")
+    participant = data.get("participant")
+
+    if not activity_name or not participant:
+        raise HTTPException(status_code=400, detail="Missing activity or participant")
+
+    if activity_name not in activities:
+        raise HTTPException(status_code=404, detail="Activity not found")
+
+    activity = activities[activity_name]
+    if participant not in activity["participants"]:
+        raise HTTPException(status_code=404, detail="Participant not found in activity")
+
+    activity["participants"].remove(participant)
+    return {"success": True, "message": f"Unregistered {participant} from {activity_name}"}
+
 
 @app.post("/activities/{activity_name}/signup")
 def signup_for_activity(activity_name: str, email: str):
@@ -61,6 +126,13 @@ def signup_for_activity(activity_name: str, email: str):
 
     # Get the specific activity
     activity = activities[activity_name]
+
+    # Validate student is not already signed up
+    if email in activity["participants"]:
+        raise HTTPException(status_code=400, detail="Student is already signed up for this activity")
+    
+    # Validate activity is not full
+    if len(activity["participants"]) >= activity["max_participants"]:raise HTTPException(status_code=400, detail="Activity is full")
 
     # Add student
     activity["participants"].append(email)
