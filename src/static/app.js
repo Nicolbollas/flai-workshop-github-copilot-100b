@@ -20,22 +20,36 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const spotsLeft = details.max_participants - details.participants.length;
 
-          activityCard.innerHTML = `
-            <h4>${name}</h4>
-            <p>${details.description}</p>
-            <p><strong>Schedule:</strong> ${details.schedule}</p>
-            <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
-            <div class="participants-section">
-              <strong>Participants:</strong>
-              <ul class="participants-list">
-                ${details.participants.map(
-                  participant => `<li>${participant}</li>`
-                ).join("")}
-              </ul>
-            </div>
-          `;
+        activityCard.innerHTML = `
+          <h4>${name}</h4>
+          <p>${details.description}</p>
+          <p><strong>Schedule:</strong> ${details.schedule}</p>
+          <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <div class="participants-section">
+            <strong>Participants:</strong>
+            <ul class="participants-list">
+              ${details.participants.map(
+                participant => `
+                  <li class="participant-item">
+                    <span>${participant}</span>
+                    <span class="delete-icon" title="Remove" data-activity="${name}" data-participant="${participant}">&#128465;</span>
+                  </li>
+                `
+              ).join("")}
+            </ul>
+          </div>
+        `;
 
         activitiesList.appendChild(activityCard);
+
+        // Add delete icon click handler
+        activityCard.querySelectorAll('.delete-icon').forEach(icon => {
+          icon.addEventListener('click', function() {
+            const activityName = this.getAttribute('data-activity');
+            const participant = this.getAttribute('data-participant');
+            unregisterParticipant(activityName, participant);
+          });
+        });
 
         // Add option to select dropdown
         const option = document.createElement("option");
@@ -43,6 +57,30 @@ document.addEventListener("DOMContentLoaded", () => {
         option.textContent = name;
         activitySelect.appendChild(option);
       });
+
+      // ...existing code...
+
+      // Unregister participant from activity
+      function unregisterParticipant(activityName, participant) {
+        fetch(`/unregister`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ activity: activityName, participant }),
+        })
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              fetchActivities();
+            } else {
+              alert(data.message || 'Failed to unregister participant.');
+            }
+          })
+          .catch(() => {
+            alert('Failed to unregister participant.');
+          });
+      }
     } catch (error) {
       activitiesList.innerHTML = "<p>Failed to load activities. Please try again later.</p>";
       console.error("Error fetching activities:", error);
@@ -70,6 +108,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        fetchActivities(); // Reload activities after signup
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
